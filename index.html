@@ -1,0 +1,673 @@
+// Константы и вспомогательные функции
+const STATUS_PATTERNS = [
+  { key: 'new', short: 'Нов.', title: 'Новые' },
+  { key: 'in_progress', short: 'В раб.', title: 'В работе' },
+  { key: 'legalized', short: 'Легал.', title: 'Легализовано' },
+  { key: 'dismantled', short: 'Демон.', title: 'Демонтировано' },
+  { key: 'pending', short: 'Ожид.', title: 'Ожидает' }
+];
+
+const BRANCHES = [
+  'Краснодар', 'Сочи', 'Новороссийск', 'Армавир', 'Тихорецк',
+  'Славянск-на-Кубани', 'Лабинск', 'Ейск', 'Туапсе', 'Геленджик'
+];
+
+function fmt(num) {
+  return new Intl.NumberFormat('ru-RU').format(num);
+}
+
+// Генерация изображения графика
+function generateChartImage(type, labels, datasets, options = {}) {
+  return new Promise((resolve) => {
+    const canvas = document.createElement('canvas');
+    canvas.width = 800;
+    canvas.height = 500;
+    const ctx = canvas.getContext('2d');
+
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    new Chart(ctx, {
+      type: type,
+      data: { labels, datasets },
+      options: {
+        responsive: false,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { 
+            position: 'bottom',
+            labels: {
+              font: { size: 12, family: 'Inter, sans-serif' },
+              padding: 15
+            }
+          },
+          title: options.title ? {
+            display: true,
+            text: options.title,
+            font: { size: 16, weight: 'bold', family: 'Inter, sans-serif' }
+          } : undefined
+        },
+        scales: type !== 'doughnut' && type !== 'pie' ? {
+          y: { 
+            beginAtZero: true,
+            ticks: { font: { size: 12, family: 'Inter, sans-serif' } },
+            grid: { color: 'rgba(0, 0, 0, 0.1)' }
+          },
+          x: {
+            ticks: { 
+              font: { size: 10, family: 'Inter, sans-serif' }, 
+              maxRotation: 45, 
+              minRotation: 45 
+            },
+            grid: { display: false }
+          }
+        } : undefined,
+        animation: {
+          onComplete: () => {
+            setTimeout(() => {
+              resolve(canvas.toDataURL('image/png', 1.0));
+            }, 100);
+          }
+        }
+      }
+    });
+  });
+}
+
+// Генерация HTML-отчета
+async function generateExecutiveReport(curr, prev, dyn, planFactHTML) {
+  const eff = (curr.p1.totals.legalized + curr.p1.totals.dismantled_ytd) - 
+              (prev.p1.totals.legalized + prev.p1.totals.dismantled_ytd);
+  const rtkShare = curr.p1.totals.in_work_total ? 
+    (curr.p1.totals.rtk_in_work / curr.p1.totals.in_work_total * 100) : 0;
+
+  const sortedBranches = [...BRANCHES].sort((a, b) => a.localeCompare(b, 'ru'));
+  
+  const sortedBranchRows = sortedBranches.map(b => 
+    dyn.branchRows.find(r => r.b === b) || {b, p: 0, c: 0, d: 0}
+  );
+  const sortedBranchRowsS3 = sortedBranches.map(b => 
+    dyn.branchRowsS3.find(r => r.b === b) || {b, p: 0, c: 0, d: 0}
+  );
+  const sortedBranchRowsS4 = sortedBranches.map(b => 
+    dyn.branchRowsS4.find(r => r.b === b) || {b, p: 0, c: 0, d: 0}
+  );
+  const sortedStatusRows = sortedBranches.map(b => 
+    dyn.statusRows.find(r => r.b === b) || {b, statuses: {}}
+  );
+
+  const [chartMainImg, chart425Img, chartRTKImg, statusTotalImg] = await Promise.all([
+    generateChartImage('bar', sortedBranches, [
+      {
+        label: 'Предыдущая неделя',
+        data: sortedBranchRows.map(r => r.p),
+        backgroundColor: 'rgba(148, 163, 184, 0.8)',
+        borderColor: 'rgba(148, 163, 184, 1)',
+        borderWidth: 1
+      },
+      {
+        label: 'Текущая неделя',
+        data: sortedBranchRows.map(r => r.c),
+        backgroundColor: 'rgba(30, 64, 175, 0.8)',
+        borderColor: 'rgba(30, 64, 175, 1)',
+        borderWidth: 1
+      }
+    ], { title: 'Динамика по филиалам (всего)' }),
+    generateChartImage('bar', sortedBranches, [
+      {
+        label: 'Предыдущая неделя',
+        data: sortedBranchRowsS3.map(r => r.p),
+        backgroundColor: 'rgba(148, 163, 184, 0.8)',
+        borderColor: 'rgba(148, 163, 184, 1)',
+        borderWidth: 1
+      },
+      {
+        label: 'Текущая неделя',
+        data: sortedBranchRowsS3.map(r => r.c),
+        backgroundColor: 'rgba(30, 64, 175, 0.8)',
+        borderColor: 'rgba(30, 64, 175, 1)',
+        borderWidth: 1
+      }
+    ], { title: 'Динамика по Приказу №425' }),
+    generateChartImage('bar', sortedBranches, [
+      {
+        label: 'Предыдущая неделя',
+        data: sortedBranchRowsS4.map(r => r.p),
+        backgroundColor: 'rgba(148, 163, 184, 0.8)',
+        borderColor: 'rgba(148, 163, 184, 1)',
+        borderWidth: 1
+      },
+      {
+        label: 'Текущая неделя',
+        data: sortedBranchRowsS4.map(r => r.c),
+        backgroundColor: 'rgba(30, 64, 175, 0.8)',
+        borderColor: 'rgba(30, 64, 175, 1)',
+        borderWidth: 1
+      }
+    ], { title: 'Динамика по ПАО «Ростелеком»' }),
+    generateChartImage('bar', 
+      STATUS_PATTERNS.map(sp => sp.short),
+      [{
+        label: 'Изменение за неделю',
+        data: STATUS_PATTERNS.map(sp => {
+          return sortedStatusRows.reduce((sum, row) => 
+            sum + (row.statuses[sp.key]?.d || 0), 0
+          );
+        }),
+        backgroundColor: STATUS_PATTERNS.map(sp => {
+          const total = sortedStatusRows.reduce((sum, row) => 
+            sum + (row.statuses[sp.key]?.d || 0), 0
+          );
+          return total > 0 ? 'rgba(16, 185, 129, 0.8)' : 
+                 total < 0 ? 'rgba(239, 68, 68, 0.8)' : 
+                 'rgba(148, 163, 184, 0.8)';
+        }),
+        borderWidth: 1
+      }],
+      { title: 'Изменение по статусам за неделю' }
+    )
+  ]);
+
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Презентация для руководства - АО «Россети Кубань»</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { 
+      font-family: 'Inter', sans-serif; 
+      background: #1e293b; 
+      color: #1e293b;
+      padding: 20px;
+    }
+    .slide {
+      width: 100%;
+      max-width: 1280px;
+      min-height: 720px;
+      margin: 0 auto 30px;
+      background: white;
+      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.5);
+      padding: 40px;
+      position: relative;
+      page-break-after: always;
+      page-break-inside: avoid;
+    }
+    .slide-header {
+      background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+      color: white;
+      margin: -40px -40px 30px;
+      padding: 25px 40px;
+      position: relative;
+    }
+    h1 { 
+      font-size: 1.75rem; 
+      font-weight: 800; 
+      margin-bottom: 5px; 
+    }
+    h2 { 
+      font-size: 1.25rem; 
+      font-weight: 700; 
+      color: #1e40af; 
+      margin: 20px 0 15px; 
+    }
+    .subtitle { 
+      font-size: 0.875rem; 
+      opacity: 0.9; 
+    }
+    .content-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 30px;
+      align-items: start;
+    }
+    .chart-container {
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 8px;
+      text-align: center;
+    }
+    .chart-container img {
+      width: 100%;
+      max-width: 600px;
+      height: auto;
+      max-height: 400px;
+      object-fit: contain;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    th, td {
+      padding: 10px 12px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    th {
+      background: linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%);
+      color: white;
+      font-weight: 600;
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.025em;
+    }
+    th:not(:first-child), td:not(:first-child) {
+      text-align: right;
+    }
+    tr:nth-child(even) { 
+      background: #f8fafc; 
+    }
+    tbody tr:last-child td { 
+      border-bottom: none; 
+    }
+    tfoot tr {
+      background: #1e293b !important;
+      color: white;
+      font-weight: 700;
+    }
+    tfoot td { 
+      border-bottom: none;
+      border-top: 2px solid #1e40af;
+    }
+    .positive { color: #10b981; }
+    .negative { color: #ef4444; }
+    .neutral { color: #64748b; }
+    .page-number {
+      position: absolute;
+      bottom: 20px;
+      right: 30px;
+      background: #1e40af;
+      color: white;
+      width: 35px;
+      height: 35px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.875rem;
+    }
+    .date-info {
+      position: absolute;
+      bottom: 20px;
+      left: 30px;
+      color: #64748b;
+      font-size: 0.75rem;
+    }
+    .status-matrix {
+      font-size: 0.75rem;
+    }
+    .status-matrix th {
+      font-size: 0.7rem;
+      padding: 8px 6px;
+    }
+    .status-matrix td {
+      padding: 8px 6px;
+      text-align: center;
+    }
+    .summary-box {
+      background: #f8fafc;
+      padding: 20px;
+      border-radius: 8px;
+      margin: 20px 0;
+    }
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin: 20px 0;
+    }
+    .metric-item {
+      background: white;
+      padding: 15px;
+      border-radius: 8px;
+      border-left: 3px solid #1e40af;
+    }
+    .metric-label {
+      font-size: 0.75rem;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 5px;
+    }
+    .metric-value {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: #1e293b;
+    }
+    @media print {
+      body { 
+        background: white; 
+        padding: 0; 
+      }
+      .slide { 
+        box-shadow: none; 
+        margin-bottom: 0;
+        border: 1px solid #e2e8f0; 
+      }
+      .chart-container img {
+        max-width: 100%;
+        height: auto;
+      }
+    }
+    @media (max-width: 768px) {
+      .slide { 
+        padding: 20px; 
+      }
+      .content-grid {
+        grid-template-columns: 1fr;
+      }
+      h1 { 
+        font-size: 1.25rem; 
+      }
+      table { 
+        font-size: 0.7rem; 
+      }
+      th, td { 
+        padding: 6px 8px; 
+      }
+      .chart-container img {
+        max-width: 100%;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="slide">
+    <div class="slide-header">
+      <h1>Выполнение ключевых показателей БП</h1>
+      <div class="subtitle">АО «Россети Кубань» • Период: ${prev.date} — ${curr.date}</div>
+    </div>
+    <div style="margin-top: 30px;">
+      ${planFactHTML}
+    </div>
+    <div class="summary-box">
+      <div class="metrics-grid">
+        <div class="metric-item">
+          <div class="metric-label">В работе всего</div>
+          <div class="metric-value">${fmt(curr.p1.totals.in_work_total)}</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Выявлено за неделю</div>
+          <div class="metric-value">${fmt(dyn.found_week)}</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Закрыто за неделю</div>
+          <div class="metric-value">${fmt(eff)}</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Доля ПАО «Ростелеком»</div>
+          <div class="metric-value">${rtkShare.toFixed(1)}%</div>
+        </div>
+      </div>
+    </div>
+    <div class="date-info">${new Date().toLocaleDateString('ru-RU')}</div>
+    <div class="page-number">1</div>
+  </div>
+
+  <div class="slide">
+    <div class="slide-header">
+      <h1>Динамика по филиалам (всего)</h1>
+      <div class="subtitle">Все операторы связи</div>
+    </div>
+    <div class="content-grid">
+      <div class="chart-container">
+        <img src="${chartMainImg}" alt="График динамики по филиалам">
+      </div>
+      <div>
+        <table>
+          <thead>
+            <tr>
+              <th>Филиал</th>
+              <th>Пред.</th>
+              <th>Тек.</th>
+              <th>Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sortedBranchRows.map(row => `
+              <tr>
+                <td style="font-weight: 600;">${row.b}</td>
+                <td>${fmt(row.p)}</td>
+                <td>${fmt(row.c)}</td>
+                <td class="${row.d > 0 ? 'positive' : row.d < 0 ? 'negative' : 'neutral'}" style="font-weight: 700;">
+                  ${row.d > 0 ? '+' : ''}${fmt(row.d)}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>ИТОГО</td>
+              <td>${fmt(sortedBranchRows.reduce((s, r) => s + r.p, 0))}</td>
+              <td>${fmt(sortedBranchRows.reduce((s, r) => s + r.c, 0))}</td>
+              <td>${fmt(sortedBranchRows.reduce((s, r) => s + r.d, 0))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="date-info">${new Date().toLocaleDateString('ru-RU')}</div>
+    <div class="page-number">2</div>
+  </div>
+
+  <div class="slide">
+    <div class="slide-header">
+      <h1>В том числе динамика по Приказу №425</h1>
+      <div class="subtitle">Выполнение показателей по филиалам</div>
+    </div>
+    <div class="content-grid">
+      <div class="chart-container">
+        <img src="${chart425Img}" alt="График по Приказу №425">
+      </div>
+      <div>
+        <table>
+          <thead>
+            <tr>
+              <th>Филиал</th>
+              <th>Пред.</th>
+              <th>Тек.</th>
+              <th>Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sortedBranchRowsS3.map(row => `
+              <tr>
+                <td style="font-weight: 600;">${row.b}</td>
+                <td>${fmt(row.p)}</td>
+                <td>${fmt(row.c)}</td>
+                <td class="${row.d > 0 ? 'positive' : row.d < 0 ? 'negative' : 'neutral'}" style="font-weight: 700;">
+                  ${row.d > 0 ? '+' : ''}${fmt(row.d)}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>ИТОГО</td>
+              <td>${fmt(sortedBranchRowsS3.reduce((s, r) => s + r.p, 0))}</td>
+              <td>${fmt(sortedBranchRowsS3.reduce((s, r) => s + r.c, 0))}</td>
+              <td>${fmt(sortedBranchRowsS3.reduce((s, r) => s + r.d, 0))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="date-info">${new Date().toLocaleDateString('ru-RU')}</div>
+    <div class="page-number">3</div>
+  </div>
+
+  <div class="slide">
+    <div class="slide-header">
+      <h1>В том числе динамика по ПАО «Ростелеком»</h1>
+      <div class="subtitle">Детализация по филиалам</div>
+    </div>
+    <div class="content-grid">
+      <div class="chart-container">
+        <img src="${chartRTKImg}" alt="График ПАО Ростелеком">
+      </div>
+      <div>
+        <table>
+          <thead>
+            <tr>
+              <th>Филиал</th>
+              <th>Пред.</th>
+              <th>Тек.</th>
+              <th>Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sortedBranchRowsS4.map(row => `
+              <tr>
+                <td style="font-weight: 600;">${row.b}</td>
+                <td>${fmt(row.p)}</td>
+                <td>${fmt(row.c)}</td>
+                <td class="${row.d > 0 ? 'positive' : row.d < 0 ? 'negative' : 'neutral'}" style="font-weight: 700;">
+                  ${row.d > 0 ? '+' : ''}${fmt(row.d)}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>ИТОГО</td>
+              <td>${fmt(sortedBranchRowsS4.reduce((s, r) => s + r.p, 0))}</td>
+              <td>${fmt(sortedBranchRowsS4.reduce((s, r) => s + r.c, 0))}</td>
+              <td>${fmt(sortedBranchRowsS4.reduce((s, r) => s + r.d, 0))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="date-info">${new Date().toLocaleDateString('ru-RU')}</div>
+    <div class="page-number">4</div>
+  </div>
+
+  <div class="slide">
+    <div class="slide-header">
+      <h1>Динамика по статусам в разрезе филиалов</h1>
+      <div class="subtitle">Изменение за неделю</div>
+    </div>
+    <table class="status-matrix">
+      <thead>
+        <tr>
+          <th style="text-align: left;">Филиал</th>
+          ${STATUS_PATTERNS.map(sp => `<th>${sp.short}</th>`).join('')}
+          <th>Итого</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sortedStatusRows.map(row => {
+          const rowTotal = STATUS_PATTERNS.reduce((sum, sp) => 
+            sum + (row.statuses[sp.key]?.d || 0), 0
+          );
+          return `
+            <tr>
+              <td style="font-weight: 600; text-align: left;">${row.b}</td>
+              ${STATUS_PATTERNS.map(sp => {
+                const d = row.statuses[sp.key]?.d || 0;
+                return `<td class="${d > 0 ? 'positive' : d < 0 ? 'negative' : 'neutral'}" style="font-weight: 600;">
+                  ${d !== 0 ? (d > 0 ? '+' : '') + fmt(d) : '—'}
+                </td>`;
+              }).join('')}
+              <td style="font-weight: 700;" class="${rowTotal > 0 ? 'positive' : rowTotal < 0 ? 'negative' : 'neutral'}">
+                ${rowTotal !== 0 ? (rowTotal > 0 ? '+' : '') + fmt(rowTotal) : '—'}
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td style="text-align: left;">ИТОГО</td>
+          ${STATUS_PATTERNS.map(sp => {
+            const total = sortedStatusRows.reduce((sum, row) => 
+              sum + (row.statuses[sp.key]?.d || 0), 0
+            );
+            return `<td>${total !== 0 ? (total > 0 ? '+' : '') + fmt(total) : '—'}</td>`;
+          }).join('')}
+          <td>
+            ${fmt(sortedStatusRows.reduce((sum, row) => 
+              sum + STATUS_PATTERNS.reduce((s, sp) => s + (row.statuses[sp.key]?.d || 0), 0), 0))}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+    <div class="date-info">${new Date().toLocaleDateString('ru-RU')}</div>
+    <div class="page-number">5</div>
+  </div>
+
+  <div class="slide">
+    <div class="slide-header">
+      <h1>Динамика по статусам всего по обществу</h1>
+      <div class="subtitle">Сводные изменения за неделю</div>
+    </div>
+    <div class="content-grid">
+      <div class="chart-container">
+        <img src="${statusTotalImg}" alt="График изменений по статусам">
+      </div>
+      <div>
+        <table>
+          <thead>
+            <tr>
+              <th>Статус</th>
+              <th>Пред.</th>
+              <th>Тек.</th>
+              <th>Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${STATUS_PATTERNS.map(sp => {
+              const prevTotal = sortedStatusRows.reduce((sum, row) => 
+                sum + (row.statuses[sp.key]?.p || 0), 0
+              );
+              const currTotal = sortedStatusRows.reduce((sum, row) => 
+                sum + (row.statuses[sp.key]?.c || 0), 0
+              );
+              const delta = sortedStatusRows.reduce((sum, row) => 
+                sum + (row.statuses[sp.key]?.d || 0), 0
+              );
+              return `
+                <tr>
+                  <td style="font-weight: 600;">${sp.title}</td>
+                  <td>${fmt(prevTotal)}</td>
+                  <td>${fmt(currTotal)}</td>
+                  <td class="${delta > 0 ? 'positive' : delta < 0 ? 'negative' : 'neutral'}" style="font-weight: 700;">
+                    ${delta > 0 ? '+' : ''}${fmt(delta)}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>ИТОГО</td>
+              <td>${fmt(STATUS_PATTERNS.reduce((sum, sp) => 
+                sum + sortedStatusRows.reduce((s, row) => 
+                  s + (row.statuses[sp.key]?.p || 0), 0), 0))}</td>
+              <td>${fmt(STATUS_PATTERNS.reduce((sum, sp) => 
+                sum + sortedStatusRows.reduce((s, row) => 
+                  s + (row.statuses[sp.key]?.c || 0), 0), 0))}</td>
+              <td>${fmt(STATUS_PATTERNS.reduce((sum, sp) => 
+                sum + sortedStatusRows.reduce((s, row) => 
+                  s + (row.statuses[sp.key]?.d || 0), 0), 0))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="date-info">${new Date().toLocaleDateString('ru-RU')}</div>
+    <div class="page-number">6</div>
+  </div>
+</body>
+</html>`;
+}
+
+// Экспорт функции для использования в других модулях
+export { generateExecutiveReport };
