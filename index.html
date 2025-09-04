@@ -1838,6 +1838,11 @@
         return;
       }
       
+      showMessage('Генерация презентации...', 'loading');
+      
+      // Небольшая задержка для рендеринга сообщения
+      await new Promise(resolve => setTimeout(resolve, 100));
+      
       const planFactHTML = await loadPlanFact();
       const { curr, prev, dyn } = DATA;
       const html = generateExecutiveReport(curr, prev, dyn, planFactHTML);
@@ -1884,212 +1889,56 @@
       showMessage('Документ для Word сохранен', 'success');
     }
 
-    // ==================== ИСПРАВЛЕННАЯ функция генерации презентации ====================
+    // ==================== ИСПРАВЛЕННАЯ функция генерации презентации с графиками ====================
     function generateExecutiveReport(curr, prev, dyn, planFactHTML) {
       const eff = (curr.p1.totals.legalized + curr.p1.totals.dismantled_ytd) - 
                   (prev.p1.totals.legalized + prev.p1.totals.dismantled_ytd);
       const rtkShare = curr.p1.totals.in_work_total ? 
         (curr.p1.totals.rtk_in_work / curr.p1.totals.in_work_total * 100) : 0;
 
-      // Сортировка филиалов от А до Я
-      const sortedBranches = [...BRANCHES].sort((a, b) => a.localeCompare(b, 'ru'));
-      
-      // Сортированные данные
-      const sortedBranchRows = sortedBranches.map(b => 
-        dyn.branchRows.find(r => r.b === b) || {b, p: 0, c: 0, d: 0}
-      );
-      const sortedBranchRowsS3 = sortedBranches.map(b => 
-        dyn.branchRowsS3.find(r => r.b === b) || {b, p: 0, c: 0, d: 0}
-      );
-      const sortedBranchRowsS4 = sortedBranches.map(b => 
-        dyn.branchRowsS4.find(r => r.b === b) || {b, p: 0, c: 0, d: 0}
-      );
-      const sortedStatusRows = sortedBranches.map(b => 
-        dyn.statusRows.find(r => r.b === b) || {b, statuses: {}}
-      );
-
-      // ИСПРАВЛЕННАЯ функция генерации графиков как base64 изображений
-      const generateChartImage = (type, labels, datasets, options = {}) => {
-        // Создаем временный canvas в DOM (невидимый)
-        const tempContainer = document.createElement('div');
-        tempContainer.style.position = 'absolute';
-        tempContainer.style.left = '-9999px';
-        tempContainer.style.width = '800px';
-        tempContainer.style.height = '400px';
-        document.body.appendChild(tempContainer);
-        
+      // Создаем Canvas в памяти для генерации графиков
+      const createChart = (type, labels, datasets, options = {}) => {
         const canvas = document.createElement('canvas');
         canvas.width = 800;
         canvas.height = 400;
-        tempContainer.appendChild(canvas);
+        document.body.appendChild(canvas);
+        canvas.style.display = 'none';
         
         const ctx = canvas.getContext('2d');
-        
-        // Создаем график с animation: false для синхронной отрисовки
         const chart = new Chart(ctx, {
           type: type,
           data: { labels, datasets },
           options: {
+            ...options,
             responsive: false,
-            maintainAspectRatio: false,
-            animation: false, // ВАЖНО: отключаем анимацию для синхронной отрисовки
-            plugins: {
-              legend: { 
-                position: 'bottom',
-                labels: {
-                  font: { size: 11 },
-                  padding: 12,
-                  generateLabels: function(chart) {
-                    const original = Chart.defaults.plugins.legend.labels.generateLabels;
-                    const labels = original.call(this, chart);
-                    labels.forEach(label => {
-                      label.text = label.text.length > 30 ? 
-                        label.text.substring(0, 30) + '...' : label.text;
-                    });
-                    return labels;
-                  }
-                }
-              },
-              title: options.title ? {
-                display: true,
-                text: options.title,
-                font: { size: 16, weight: 'bold' },
-                padding: 20
-              } : undefined
-            },
-            scales: type !== 'doughnut' && type !== 'pie' ? {
-              y: { 
-                beginAtZero: true,
-                ticks: { 
-                  font: { size: 11 },
-                  callback: function(value) {
-                    return value.toLocaleString('ru-RU');
-                  }
-                },
-                grid: {
-                  color: 'rgba(0, 0, 0, 0.05)'
-                }
-              },
-              x: {
-                ticks: { 
-                  font: { size: 10 }, 
-                  maxRotation: 45, 
-                  minRotation: 45,
-                  autoSkip: false
-                },
-                grid: {
-                  display: false
-                }
-              }
-            } : undefined
+            animation: false
           }
         });
         
-        // Форсируем обновление и рендеринг
-        chart.update();
-        
-        // Получаем base64 изображение
-        const imageData = canvas.toDataURL('image/png', 1.0);
-        
-        // Уничтожаем временные элементы
+        const imageData = canvas.toDataURL('image/png');
         chart.destroy();
-        document.body.removeChild(tempContainer);
-        
+        document.body.removeChild(canvas);
         return imageData;
       };
 
-      // Создаем изображения графиков с отсортированными данными
-      const chartMainImg = generateChartImage('bar', sortedBranches, [
+      // Генерация данных для графиков
+      const chartMainImg = createChart('bar', BRANCHES, [
         {
           label: 'Предыдущая неделя',
-          data: sortedBranchRows.map(r => r.p),
-          backgroundColor: 'rgba(148, 163, 184, 0.8)',
-          borderColor: 'rgba(148, 163, 184, 1)',
-          borderWidth: 1
+          data: BRANCHES.map(b => prev.p2.branches.get(b)?.total || 0),
+          backgroundColor: 'rgba(148, 163, 184, 0.8)'
         },
         {
           label: 'Текущая неделя',
-          data: sortedBranchRows.map(r => r.c),
-          backgroundColor: 'rgba(30, 64, 175, 0.8)',
-          borderColor: 'rgba(30, 64, 175, 1)',
-          borderWidth: 1
+          data: BRANCHES.map(b => curr.p2.branches.get(b)?.total || 0),
+          backgroundColor: 'rgba(30, 64, 175, 0.8)'
         }
-      ], { title: 'Динамика по филиалам (всего)' });
+      ], getChartOptions());
 
-      const chart425Img = generateChartImage('bar', sortedBranches, [
-        {
-          label: 'Предыдущая неделя',
-          data: sortedBranchRowsS3.map(r => r.p),
-          backgroundColor: 'rgba(148, 163, 184, 0.8)',
-          borderColor: 'rgba(148, 163, 184, 1)',
-          borderWidth: 1
-        },
-        {
-          label: 'Текущая неделя',
-          data: sortedBranchRowsS3.map(r => r.c),
-          backgroundColor: 'rgba(30, 64, 175, 0.8)',
-          borderColor: 'rgba(30, 64, 175, 1)',
-          borderWidth: 1
-        }
-      ], { title: 'Динамика по Приказу №425' });
-
-      const chartRTKImg = generateChartImage('bar', sortedBranches, [
-        {
-          label: 'Предыдущая неделя',
-          data: sortedBranchRowsS4.map(r => r.p),
-          backgroundColor: 'rgba(148, 163, 184, 0.8)',
-          borderColor: 'rgba(148, 163, 184, 1)',
-          borderWidth: 1
-        },
-        {
-          label: 'Текущая неделя',
-          data: sortedBranchRowsS4.map(r => r.c),
-          backgroundColor: 'rgba(30, 64, 175, 0.8)',
-          borderColor: 'rgba(30, 64, 175, 1)',
-          borderWidth: 1
-        }
-      ], { title: 'Динамика по ПАО «Ростелеком»' });
-
-      // ИСПРАВЛЕНО: График динамики по статусам всего
-      const statusTotalImg = generateChartImage('bar', 
+      const chartStatusImg = createChart('doughnut', 
         STATUS_PATTERNS.map(sp => sp.short),
         [{
-          label: 'Изменение за неделю',
-          data: STATUS_PATTERNS.map(sp => {
-            return sortedStatusRows.reduce((sum, row) => 
-              sum + (row.statuses[sp.key]?.d || 0), 0
-            );
-          }),
-          backgroundColor: STATUS_PATTERNS.map(sp => {
-            const total = sortedStatusRows.reduce((sum, row) => 
-              sum + (row.statuses[sp.key]?.d || 0), 0
-            );
-            return total > 0 ? 'rgba(16, 185, 129, 0.8)' : 
-                   total < 0 ? 'rgba(239, 68, 68, 0.8)' : 
-                   'rgba(148, 163, 184, 0.8)';
-          }),
-          borderColor: STATUS_PATTERNS.map(sp => {
-            const total = sortedStatusRows.reduce((sum, row) => 
-              sum + (row.statuses[sp.key]?.d || 0), 0
-            );
-            return total > 0 ? 'rgba(16, 185, 129, 1)' : 
-                   total < 0 ? 'rgba(239, 68, 68, 1)' : 
-                   'rgba(148, 163, 184, 1)';
-          }),
-          borderWidth: 1
-        }],
-        { title: 'Изменение по статусам за неделю' }
-      );
-
-      // График-пончик для распределения статусов (дополнительный)
-      const statusDonutImg = generateChartImage('doughnut',
-        STATUS_PATTERNS.map(sp => sp.short),
-        [{
-          data: STATUS_PATTERNS.map(sp => {
-            return sortedStatusRows.reduce((sum, row) => 
-              sum + (row.statuses[sp.key]?.c || 0), 0
-            );
-          }),
+          data: STATUS_PATTERNS.map(sp => curr.p2.stages[sp.key] || 0),
           backgroundColor: [
             'rgba(30, 64, 175, 0.8)',
             'rgba(239, 68, 68, 0.8)',
@@ -2097,18 +1946,8 @@
             'rgba(16, 185, 129, 0.8)',
             'rgba(6, 182, 212, 0.8)',
             'rgba(139, 92, 246, 0.8)'
-          ],
-          borderColor: [
-            'rgba(30, 64, 175, 1)',
-            'rgba(239, 68, 68, 1)',
-            'rgba(245, 158, 11, 1)',
-            'rgba(16, 185, 129, 1)',
-            'rgba(6, 182, 212, 1)',
-            'rgba(139, 92, 246, 1)'
-          ],
-          borderWidth: 2
-        }],
-        { title: 'Текущее распределение по статусам' }
+          ]
+        }]
       );
       
       return `<!DOCTYPE html>
@@ -2242,17 +2081,6 @@
       color: #64748b;
       font-size: 0.75rem;
     }
-    .status-matrix {
-      font-size: 0.75rem;
-    }
-    .status-matrix th {
-      font-size: 0.7rem;
-      padding: 8px 6px;
-    }
-    .status-matrix td {
-      padding: 8px 6px;
-      text-align: center;
-    }
     .summary-box {
       background: #f8fafc;
       padding: 20px;
@@ -2294,30 +2122,13 @@
         border: 1px solid #e2e8f0; 
       }
     }
-    @media (max-width: 768px) {
-      .slide { 
-        padding: 20px; 
-      }
-      .content-grid {
-        grid-template-columns: 1fr;
-      }
-      h1 { 
-        font-size: 1.25rem; 
-      }
-      table { 
-        font-size: 0.7rem; 
-      }
-      th, td { 
-        padding: 6px 8px; 
-      }
-    }
   </style>
 </head>
 <body>
-  <!-- Слайд 1: План-Факт выполнения ключевых показателей -->
+  <!-- Слайд 1: Титульный -->
   <div class="slide">
     <div class="slide-header">
-      <h1>Выполнение ключевых показателей БП</h1>
+      <h1>Мониторинг ВОЛС</h1>
       <div class="subtitle">АО «Россети Кубань» • Период: ${prev.date} — ${curr.date}</div>
     </div>
     <div style="margin-top: 30px;">
@@ -2347,15 +2158,15 @@
     <div class="page-number">1</div>
   </div>
 
-  <!-- Слайд 2: Динамика по филиалам (всего) -->
+  <!-- Слайд 2: Динамика по филиалам -->
   <div class="slide">
     <div class="slide-header">
-      <h1>Динамика по филиалам (всего)</h1>
+      <h1>Динамика по филиалам</h1>
       <div class="subtitle">Все операторы связи</div>
     </div>
     <div class="content-grid">
       <div class="chart-container">
-        <img src="${chartMainImg}" alt="График динамики по филиалам">
+        <img src="${chartMainImg}" alt="График">
       </div>
       <div>
         <table>
@@ -2368,7 +2179,7 @@
             </tr>
           </thead>
           <tbody>
-            ${sortedBranchRows.map(row => `
+            ${dyn.branchRows.map(row => `
               <tr>
                 <td style="font-weight: 600;">${row.b}</td>
                 <td>${fmt(row.p)}</td>
@@ -2382,9 +2193,9 @@
           <tfoot>
             <tr>
               <td>ИТОГО</td>
-              <td>${fmt(sortedBranchRows.reduce((s, r) => s + r.p, 0))}</td>
-              <td>${fmt(sortedBranchRows.reduce((s, r) => s + r.c, 0))}</td>
-              <td>${fmt(sortedBranchRows.reduce((s, r) => s + r.d, 0))}</td>
+              <td>${fmt(dyn.branchRows.reduce((s, r) => s + r.p, 0))}</td>
+              <td>${fmt(dyn.branchRows.reduce((s, r) => s + r.c, 0))}</td>
+              <td>${fmt(dyn.branchRows.reduce((s, r) => s + r.d, 0))}</td>
             </tr>
           </tfoot>
         </table>
@@ -2394,12 +2205,263 @@
     <div class="page-number">2</div>
   </div>
 
-  <!-- Слайд 3: Динамика по Приказу №425 -->
+  <!-- Слайд 3: Статусы работ -->
   <div class="slide">
     <div class="slide-header">
-      <h1>В том числе динамика по Приказу №425</h1>
-      <div class="subtitle">Выполнение показателей по филиалам</div>
+      <h1>Распределение по статусам работ</h1>
+      <div class="subtitle">Текущее состояние</div>
     </div>
     <div class="content-grid">
       <div class="chart-container">
-        <img src="${chart425Img
+        <img src="${chartStatusImg}" alt="График">
+      </div>
+      <div>
+        <h2>Детализация</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Статус</th>
+              <th>Количество</th>
+              <th>Изменение</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dyn.stagesS2.map(stage => `
+              <tr>
+                <td style="font-weight: 600;">${stage.title}</td>
+                <td>${fmt(stage.c)}</td>
+                <td class="${stage.d > 0 ? 'positive' : stage.d < 0 ? 'negative' : 'neutral'}" style="font-weight: 700;">
+                  ${stage.d > 0 ? '+' : ''}${fmt(stage.d)}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      </div>
+    </div>
+    <div class="date-info">${new Date().toLocaleDateString('ru-RU')}</div>
+    <div class="page-number">3</div>
+  </div>
+</body>
+</html>`;
+    }
+
+    function generateDetailedReport(curr, prev, dyn, planFactHTML) {
+      return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Аналитический отчет ВОЛС</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
+    body {
+      font-family: 'Inter', sans-serif;
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 20px;
+      background: #f8fafc;
+      color: #1e293b;
+    }
+    h1 { color: #1e40af; margin-bottom: 10px; }
+    h2 { color: #1e40af; margin-top: 30px; margin-bottom: 15px; }
+    .info { background: #eff6ff; padding: 20px; border-radius: 8px; margin: 20px 0; }
+    table { width: 100%; border-collapse: collapse; margin: 20px 0; background: white; }
+    th, td { padding: 10px; border: 1px solid #e2e8f0; font-size: 0.875rem; }
+    th { background: #1e40af; color: white; }
+    tr:nth-child(even) { background: #f8fafc; }
+  </style>
+</head>
+<body>
+  <h1>Аналитический отчет по ВОЛС</h1>
+  <div class="info">
+    <strong>Период:</strong> ${prev.date} — ${curr.date}<br>
+    <strong>Подготовлен:</strong> ${new Date().toLocaleDateString('ru-RU')}
+  </div>
+  
+  <h2>План-Факт выполнения показателей БП</h2>
+  ${planFactHTML}
+  
+  <h2>Ключевые показатели</h2>
+  <table>
+    <tr>
+      <th>Показатель</th>
+      <th>Предыдущая неделя</th>
+      <th>Текущая неделя</th>
+      <th>Изменение</th>
+    </tr>
+    <tr>
+      <td>В работе всего</td>
+      <td>${fmt(prev.p1.totals.in_work_total)}</td>
+      <td>${fmt(curr.p1.totals.in_work_total)}</td>
+      <td>${fmt(dyn.in_work_total)}</td>
+    </tr>
+    <tr>
+      <td>Узаконено</td>
+      <td>${fmt(prev.p1.totals.legalized)}</td>
+      <td>${fmt(curr.p1.totals.legalized)}</td>
+      <td>${fmt(dyn.legalized)}</td>
+    </tr>
+    <tr>
+      <td>Демонтировано</td>
+      <td>${fmt(prev.p1.totals.dismantled_ytd)}</td>
+      <td>${fmt(curr.p1.totals.dismantled_ytd)}</td>
+      <td>${fmt(dyn.dismantled_ytd)}</td>
+    </tr>
+    <tr>
+      <td>ПАО «Ростелеком»</td>
+      <td>${fmt(prev.p1.totals.rtk_in_work)}</td>
+      <td>${fmt(curr.p1.totals.rtk_in_work)}</td>
+      <td>${fmt(dyn.rtk_in_work)}</td>
+    </tr>
+  </table>
+  
+  <h2>Детализация по всем филиалам</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Филиал</th>
+        <th>Предыдущая</th>
+        <th>Текущая</th>
+        <th>Изменение</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${dyn.branchRows.map(row => `
+        <tr>
+          <td>${row.b}</td>
+          <td>${fmt(row.p)}</td>
+          <td>${fmt(row.c)}</td>
+          <td>${fmt(row.d)}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+    <tfoot>
+      <tr style="font-weight: 700;">
+        <td>ИТОГО</td>
+        <td>${fmt(dyn.branchRows.reduce((s, r) => s + r.p, 0))}</td>
+        <td>${fmt(dyn.branchRows.reduce((s, r) => s + r.c, 0))}</td>
+        <td>${fmt(dyn.branchRows.reduce((s, r) => s + r.d, 0))}</td>
+      </tr>
+    </tfoot>
+  </table>
+</body>
+</html>`;
+    }
+
+    function generateDashboardHTML(curr, prev, dyn, planFactHTML) {
+      // Интерактивный дашборд - упрощенная версия текущей страницы
+      return document.documentElement.outerHTML;
+    }
+
+    function generateWordReport(curr, prev, dyn, planFactHTML) {
+      return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <title>Отчет ВОЛС для Word</title>
+  <style>
+    @page { size: A4; margin: 2cm; }
+    body { font-family: 'Times New Roman', serif; font-size: 12pt; line-height: 1.5; }
+    h1 { font-size: 16pt; margin-bottom: 12pt; }
+    h2 { font-size: 14pt; margin-top: 12pt; margin-bottom: 6pt; }
+    table { width: 100%; border-collapse: collapse; margin: 12pt 0; }
+    th, td { border: 1px solid black; padding: 6pt; }
+    th { background: #f0f0f0; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h1>АО «Россети Кубань»</h1>
+  <h2>Отчет о динамике размещения ВОЛС</h2>
+  <p><strong>Период:</strong> ${prev.date} — ${curr.date}</p>
+  
+  <h2>План-Факт выполнения показателей БП</h2>
+  ${planFactHTML}
+  
+  <h2>1. Общие показатели</h2>
+  <p>За отчетный период выявлено ${fmt(dyn.found_week)} новых случаев бездоговорного размещения ВОЛС.</p>
+  <p>Общее количество объектов в работе составляет ${fmt(curr.p1.totals.in_work_total)} шт.</p>
+  
+  <h2>2. Динамика по всем филиалам</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>№</th>
+        <th>Филиал</th>
+        <th>На начало периода</th>
+        <th>На конец периода</th>
+        <th>Изменение</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${dyn.branchRows.map((row, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${row.b}</td>
+          <td>${fmt(row.p)}</td>
+          <td>${fmt(row.c)}</td>
+          <td>${fmt(row.d)}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th></th>
+        <th>ИТОГО</th>
+        <th>${fmt(dyn.branchRows.reduce((s, r) => s + r.p, 0))}</th>
+        <th>${fmt(dyn.branchRows.reduce((s, r) => s + r.c, 0))}</th>
+        <th>${fmt(dyn.branchRows.reduce((s, r) => s + r.d, 0))}</th>
+      </tr>
+    </tfoot>
+  </table>
+  
+  <p style="margin-top: 24pt;">
+    <strong>Исполнитель:</strong> _______________________<br>
+    <strong>Дата:</strong> ${new Date().toLocaleDateString('ru-RU')}
+  </p>
+</body>
+</html>`;
+    }
+
+    // ==================== Утилиты ====================
+    function showMessage(text, type = 'info') {
+      const statusEl = document.getElementById('uploadStatus');
+      
+      if (type === 'loading') {
+        statusEl.innerHTML = `<div class="loader"><div class="spinner"></div><span>${text}</span></div>`;
+      } else {
+        const alertClass = type === 'error' ? 'alert-error' : type === 'success' ? 'alert-success' : 'alert-info';
+        statusEl.innerHTML = `<div class="alert ${alertClass}">
+          <span>${type === 'error' ? '❌' : type === 'success' ? '✅' : 'ℹ️'}</span>
+          <span>${text}</span>
+        </div>`;
+        
+        if (type !== 'error') {
+          setTimeout(() => {
+            statusEl.innerHTML = '';
+          }, 3000);
+        }
+      }
+    }
+
+    function downloadHTML(content, filename) {
+      const blob = new Blob([content], { type: 'text/html;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+
+    // ==================== Инициализация ====================
+    document.addEventListener('DOMContentLoaded', () => {
+      // Загружаем план-факт при старте
+      loadPlanFact();
+      showMessage('Загрузите PDF-файлы для начала работы', 'info');
+    });
+  </script>
+</body>
+</html>
