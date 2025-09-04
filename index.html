@@ -1838,11 +1838,6 @@
         return;
       }
       
-      showMessage('Генерация презентации...', 'loading');
-      
-      // Небольшая задержка для рендеринга сообщения
-      await new Promise(resolve => setTimeout(resolve, 100));
-      
       const planFactHTML = await loadPlanFact();
       const { curr, prev, dyn } = DATA;
       const html = generateExecutiveReport(curr, prev, dyn, planFactHTML);
@@ -1889,65 +1884,145 @@
       showMessage('Документ для Word сохранен', 'success');
     }
 
-    // ==================== ИСПРАВЛЕННАЯ функция генерации презентации с графиками ====================
+    // ==================== Генерация отчетов ====================
     function generateExecutiveReport(curr, prev, dyn, planFactHTML) {
       const eff = (curr.p1.totals.legalized + curr.p1.totals.dismantled_ytd) - 
                   (prev.p1.totals.legalized + prev.p1.totals.dismantled_ytd);
       const rtkShare = curr.p1.totals.in_work_total ? 
         (curr.p1.totals.rtk_in_work / curr.p1.totals.in_work_total * 100) : 0;
 
-      // Создаем Canvas в памяти для генерации графиков
-      const createChart = (type, labels, datasets, options = {}) => {
+      // Сортировка филиалов от А до Я
+      const sortedBranches = [...BRANCHES].sort((a, b) => a.localeCompare(b, 'ru'));
+      
+      // Сортированные данные
+      const sortedBranchRows = sortedBranches.map(b => 
+        dyn.branchRows.find(r => r.b === b) || {b, p: 0, c: 0, d: 0}
+      );
+      const sortedBranchRowsS3 = sortedBranches.map(b => 
+        dyn.branchRowsS3.find(r => r.b === b) || {b, p: 0, c: 0, d: 0}
+      );
+      const sortedBranchRowsS4 = sortedBranches.map(b => 
+        dyn.branchRowsS4.find(r => r.b === b) || {b, p: 0, c: 0, d: 0}
+      );
+      const sortedStatusRows = sortedBranches.map(b => 
+        dyn.statusRows.find(r => r.b === b) || {b, statuses: {}}
+      );
+
+      // Генерация графиков как base64 изображений
+      const generateChartImage = (type, labels, datasets, options = {}) => {
         const canvas = document.createElement('canvas');
-        canvas.width = 800;
+        canvas.width = 600;
         canvas.height = 400;
-        document.body.appendChild(canvas);
-        canvas.style.display = 'none';
-        
         const ctx = canvas.getContext('2d');
-        const chart = new Chart(ctx, {
+        
+        new Chart(ctx, {
           type: type,
           data: { labels, datasets },
           options: {
-            ...options,
             responsive: false,
-            animation: false
+            maintainAspectRatio: false,
+            plugins: {
+              legend: { 
+                position: 'bottom',
+                labels: {
+                  font: { size: 10 },
+                  padding: 10
+                }
+              },
+              title: options.title ? {
+                display: true,
+                text: options.title,
+                font: { size: 14, weight: 'bold' }
+              } : undefined
+            },
+            scales: type !== 'doughnut' && type !== 'pie' ? {
+              y: { 
+                beginAtZero: true,
+                ticks: { font: { size: 10 } }
+              },
+              x: {
+                ticks: { font: { size: 9 }, maxRotation: 45, minRotation: 45 }
+              }
+            } : undefined
           }
         });
         
-        const imageData = canvas.toDataURL('image/png');
-        chart.destroy();
-        document.body.removeChild(canvas);
-        return imageData;
+        return canvas.toDataURL('image/png');
       };
 
-      // Генерация данных для графиков
-      const chartMainImg = createChart('bar', BRANCHES, [
+      // Создаем изображения графиков с отсортированными данными
+      const chartMainImg = generateChartImage('bar', sortedBranches, [
         {
           label: 'Предыдущая неделя',
-          data: BRANCHES.map(b => prev.p2.branches.get(b)?.total || 0),
-          backgroundColor: 'rgba(148, 163, 184, 0.8)'
+          data: sortedBranchRows.map(r => r.p),
+          backgroundColor: 'rgba(148, 163, 184, 0.8)',
+          borderColor: 'rgba(148, 163, 184, 1)',
+          borderWidth: 1
         },
         {
           label: 'Текущая неделя',
-          data: BRANCHES.map(b => curr.p2.branches.get(b)?.total || 0),
-          backgroundColor: 'rgba(30, 64, 175, 0.8)'
+          data: sortedBranchRows.map(r => r.c),
+          backgroundColor: 'rgba(30, 64, 175, 0.8)',
+          borderColor: 'rgba(30, 64, 175, 1)',
+          borderWidth: 1
         }
-      ], getChartOptions());
+      ]);
 
-      const chartStatusImg = createChart('doughnut', 
+      const chart425Img = generateChartImage('bar', sortedBranches, [
+        {
+          label: 'Предыдущая неделя',
+          data: sortedBranchRowsS3.map(r => r.p),
+          backgroundColor: 'rgba(148, 163, 184, 0.8)',
+          borderColor: 'rgba(148, 163, 184, 1)',
+          borderWidth: 1
+        },
+        {
+          label: 'Текущая неделя',
+          data: sortedBranchRowsS3.map(r => r.c),
+          backgroundColor: 'rgba(30, 64, 175, 0.8)',
+          borderColor: 'rgba(30, 64, 175, 1)',
+          borderWidth: 1
+        }
+      ]);
+
+      const chartRTKImg = generateChartImage('bar', sortedBranches, [
+        {
+          label: 'Предыдущая неделя',
+          data: sortedBranchRowsS4.map(r => r.p),
+          backgroundColor: 'rgba(148, 163, 184, 0.8)',
+          borderColor: 'rgba(148, 163, 184, 1)',
+          borderWidth: 1
+        },
+        {
+          label: 'Текущая неделя',
+          data: sortedBranchRowsS4.map(r => r.c),
+          backgroundColor: 'rgba(30, 64, 175, 0.8)',
+          borderColor: 'rgba(30, 64, 175, 1)',
+          borderWidth: 1
+        }
+      ]);
+
+      // График динамики по статусам всего
+      const statusTotalImg = generateChartImage('bar', 
         STATUS_PATTERNS.map(sp => sp.short),
         [{
-          data: STATUS_PATTERNS.map(sp => curr.p2.stages[sp.key] || 0),
-          backgroundColor: [
-            'rgba(30, 64, 175, 0.8)',
-            'rgba(239, 68, 68, 0.8)',
-            'rgba(245, 158, 11, 0.8)',
-            'rgba(16, 185, 129, 0.8)',
-            'rgba(6, 182, 212, 0.8)',
-            'rgba(139, 92, 246, 0.8)'
-          ]
-        }]
+          label: 'Изменение за неделю',
+          data: STATUS_PATTERNS.map(sp => {
+            return sortedStatusRows.reduce((sum, row) => 
+              sum + (row.statuses[sp.key]?.d || 0), 0
+            );
+          }),
+          backgroundColor: STATUS_PATTERNS.map(sp => {
+            const total = sortedStatusRows.reduce((sum, row) => 
+              sum + (row.statuses[sp.key]?.d || 0), 0
+            );
+            return total > 0 ? 'rgba(16, 185, 129, 0.8)' : 
+                   total < 0 ? 'rgba(239, 68, 68, 0.8)' : 
+                   'rgba(148, 163, 184, 0.8)';
+          }),
+          borderWidth: 1
+        }],
+        { title: 'Изменение по статусам за неделю' }
       );
       
       return `<!DOCTYPE html>
@@ -2081,6 +2156,17 @@
       color: #64748b;
       font-size: 0.75rem;
     }
+    .status-matrix {
+      font-size: 0.75rem;
+    }
+    .status-matrix th {
+      font-size: 0.7rem;
+      padding: 8px 6px;
+    }
+    .status-matrix td {
+      padding: 8px 6px;
+      text-align: center;
+    }
     .summary-box {
       background: #f8fafc;
       padding: 20px;
@@ -2122,13 +2208,30 @@
         border: 1px solid #e2e8f0; 
       }
     }
+    @media (max-width: 768px) {
+      .slide { 
+        padding: 20px; 
+      }
+      .content-grid {
+        grid-template-columns: 1fr;
+      }
+      h1 { 
+        font-size: 1.25rem; 
+      }
+      table { 
+        font-size: 0.7rem; 
+      }
+      th, td { 
+        padding: 6px 8px; 
+      }
+    }
   </style>
 </head>
 <body>
-  <!-- Слайд 1: Титульный -->
+  <!-- Слайд 1: План-Факт выполнения ключевых показателей -->
   <div class="slide">
     <div class="slide-header">
-      <h1>Мониторинг ВОЛС</h1>
+      <h1>Выполнение ключевых показателей БП</h1>
       <div class="subtitle">АО «Россети Кубань» • Период: ${prev.date} — ${curr.date}</div>
     </div>
     <div style="margin-top: 30px;">
@@ -2158,15 +2261,15 @@
     <div class="page-number">1</div>
   </div>
 
-  <!-- Слайд 2: Динамика по филиалам -->
+  <!-- Слайд 2: Динамика по филиалам (всего) -->
   <div class="slide">
     <div class="slide-header">
-      <h1>Динамика по филиалам</h1>
+      <h1>Динамика по филиалам (всего)</h1>
       <div class="subtitle">Все операторы связи</div>
     </div>
     <div class="content-grid">
       <div class="chart-container">
-        <img src="${chartMainImg}" alt="График">
+        <img src="${chartMainImg}" alt="График динамики по филиалам">
       </div>
       <div>
         <table>
@@ -2179,7 +2282,7 @@
             </tr>
           </thead>
           <tbody>
-            ${dyn.branchRows.map(row => `
+            ${sortedBranchRows.map(row => `
               <tr>
                 <td style="font-weight: 600;">${row.b}</td>
                 <td>${fmt(row.p)}</td>
@@ -2193,9 +2296,9 @@
           <tfoot>
             <tr>
               <td>ИТОГО</td>
-              <td>${fmt(dyn.branchRows.reduce((s, r) => s + r.p, 0))}</td>
-              <td>${fmt(dyn.branchRows.reduce((s, r) => s + r.c, 0))}</td>
-              <td>${fmt(dyn.branchRows.reduce((s, r) => s + r.d, 0))}</td>
+              <td>${fmt(sortedBranchRows.reduce((s, r) => s + r.p, 0))}</td>
+              <td>${fmt(sortedBranchRows.reduce((s, r) => s + r.c, 0))}</td>
+              <td>${fmt(sortedBranchRows.reduce((s, r) => s + r.d, 0))}</td>
             </tr>
           </tfoot>
         </table>
@@ -2205,42 +2308,217 @@
     <div class="page-number">2</div>
   </div>
 
-  <!-- Слайд 3: Статусы работ -->
+  <!-- Слайд 3: Динамика по Приказу №425 -->
   <div class="slide">
     <div class="slide-header">
-      <h1>Распределение по статусам работ</h1>
-      <div class="subtitle">Текущее состояние</div>
+      <h1>В том числе динамика по Приказу №425</h1>
+      <div class="subtitle">Выполнение показателей по филиалам</div>
     </div>
     <div class="content-grid">
       <div class="chart-container">
-        <img src="${chartStatusImg}" alt="График">
+        <img src="${chart425Img}" alt="График по Приказу №425">
       </div>
       <div>
-        <h2>Детализация</h2>
         <table>
           <thead>
             <tr>
-              <th>Статус</th>
-              <th>Количество</th>
-              <th>Изменение</th>
+              <th>Филиал</th>
+              <th>Пред.</th>
+              <th>Тек.</th>
+              <th>Δ</th>
             </tr>
           </thead>
           <tbody>
-            ${dyn.stagesS2.map(stage => `
+            ${sortedBranchRowsS3.map(row => `
               <tr>
-                <td style="font-weight: 600;">${stage.title}</td>
-                <td>${fmt(stage.c)}</td>
-                <td class="${stage.d > 0 ? 'positive' : stage.d < 0 ? 'negative' : 'neutral'}" style="font-weight: 700;">
-                  ${stage.d > 0 ? '+' : ''}${fmt(stage.d)}
+                <td style="font-weight: 600;">${row.b}</td>
+                <td>${fmt(row.p)}</td>
+                <td>${fmt(row.c)}</td>
+                <td class="${row.d > 0 ? 'positive' : row.d < 0 ? 'negative' : 'neutral'}" style="font-weight: 700;">
+                  ${row.d > 0 ? '+' : ''}${fmt(row.d)}
                 </td>
               </tr>
             `).join('')}
           </tbody>
+          <tfoot>
+            <tr>
+              <td>ИТОГО</td>
+              <td>${fmt(sortedBranchRowsS3.reduce((s, r) => s + r.p, 0))}</td>
+              <td>${fmt(sortedBranchRowsS3.reduce((s, r) => s + r.c, 0))}</td>
+              <td>${fmt(sortedBranchRowsS3.reduce((s, r) => s + r.d, 0))}</td>
+            </tr>
+          </tfoot>
         </table>
       </div>
     </div>
     <div class="date-info">${new Date().toLocaleDateString('ru-RU')}</div>
     <div class="page-number">3</div>
+  </div>
+
+  <!-- Слайд 4: Динамика по ПАО «Ростелеком» -->
+  <div class="slide">
+    <div class="slide-header">
+      <h1>В том числе динамика по ПАО «Ростелеком»</h1>
+      <div class="subtitle">Детализация по филиалам</div>
+    </div>
+    <div class="content-grid">
+      <div class="chart-container">
+        <img src="${chartRTKImg}" alt="График ПАО Ростелеком">
+      </div>
+      <div>
+        <table>
+          <thead>
+            <tr>
+              <th>Филиал</th>
+              <th>Пред.</th>
+              <th>Тек.</th>
+              <th>Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${sortedBranchRowsS4.map(row => `
+              <tr>
+                <td style="font-weight: 600;">${row.b}</td>
+                <td>${fmt(row.p)}</td>
+                <td>${fmt(row.c)}</td>
+                <td class="${row.d > 0 ? 'positive' : row.d < 0 ? 'negative' : 'neutral'}" style="font-weight: 700;">
+                  ${row.d > 0 ? '+' : ''}${fmt(row.d)}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>ИТОГО</td>
+              <td>${fmt(sortedBranchRowsS4.reduce((s, r) => s + r.p, 0))}</td>
+              <td>${fmt(sortedBranchRowsS4.reduce((s, r) => s + r.c, 0))}</td>
+              <td>${fmt(sortedBranchRowsS4.reduce((s, r) => s + r.d, 0))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="date-info">${new Date().toLocaleDateString('ru-RU')}</div>
+    <div class="page-number">4</div>
+  </div>
+
+  <!-- Слайд 5: Динамика по статусам в разрезе филиалов -->
+  <div class="slide">
+    <div class="slide-header">
+      <h1>Динамика по статусам в разрезе филиалов</h1>
+      <div class="subtitle">Изменение за неделю</div>
+    </div>
+    <table class="status-matrix">
+      <thead>
+        <tr>
+          <th style="text-align: left;">Филиал</th>
+          ${STATUS_PATTERNS.map(sp => `<th>${sp.short}</th>`).join('')}
+          <th>Итого</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${sortedStatusRows.map(row => {
+          const rowTotal = STATUS_PATTERNS.reduce((sum, sp) => 
+            sum + (row.statuses[sp.key]?.d || 0), 0
+          );
+          return `
+            <tr>
+              <td style="font-weight: 600; text-align: left;">${row.b}</td>
+              ${STATUS_PATTERNS.map(sp => {
+                const d = row.statuses[sp.key]?.d || 0;
+                return `<td class="${d > 0 ? 'positive' : d < 0 ? 'negative' : 'neutral'}" style="font-weight: 600;">
+                  ${d !== 0 ? (d > 0 ? '+' : '') + fmt(d) : '—'}
+                </td>`;
+              }).join('')}
+              <td style="font-weight: 700;" class="${rowTotal > 0 ? 'positive' : rowTotal < 0 ? 'negative' : 'neutral'}">
+                ${rowTotal !== 0 ? (rowTotal > 0 ? '+' : '') + fmt(rowTotal) : '—'}
+              </td>
+            </tr>
+          `;
+        }).join('')}
+      </tbody>
+      <tfoot>
+        <tr>
+          <td style="text-align: left;">ИТОГО</td>
+          ${STATUS_PATTERNS.map(sp => {
+            const total = sortedStatusRows.reduce((sum, row) => 
+              sum + (row.statuses[sp.key]?.d || 0), 0
+            );
+            return `<td>${total !== 0 ? (total > 0 ? '+' : '') + fmt(total) : '—'}</td>`;
+          }).join('')}
+          <td>
+            ${fmt(sortedStatusRows.reduce((sum, row) => 
+              sum + STATUS_PATTERNS.reduce((s, sp) => s + (row.statuses[sp.key]?.d || 0), 0), 0))}
+          </td>
+        </tr>
+      </tfoot>
+    </table>
+    <div class="date-info">${new Date().toLocaleDateString('ru-RU')}</div>
+    <div class="page-number">5</div>
+  </div>
+
+  <!-- Слайд 6: Динамика по статусам всего по обществу -->
+  <div class="slide">
+    <div class="slide-header">
+      <h1>Динамика по статусам всего по обществу</h1>
+      <div class="subtitle">Сводные изменения за неделю</div>
+    </div>
+    <div class="content-grid">
+      <div class="chart-container">
+        <img src="${statusTotalImg}" alt="График изменений по статусам">
+      </div>
+      <div>
+        <table>
+          <thead>
+            <tr>
+              <th>Статус</th>
+              <th>Пред.</th>
+              <th>Тек.</th>
+              <th>Δ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${STATUS_PATTERNS.map(sp => {
+              const prevTotal = sortedStatusRows.reduce((sum, row) => 
+                sum + (row.statuses[sp.key]?.p || 0), 0
+              );
+              const currTotal = sortedStatusRows.reduce((sum, row) => 
+                sum + (row.statuses[sp.key]?.c || 0), 0
+              );
+              const delta = sortedStatusRows.reduce((sum, row) => 
+                sum + (row.statuses[sp.key]?.d || 0), 0
+              );
+              return `
+                <tr>
+                  <td style="font-weight: 600;">${sp.title}</td>
+                  <td>${fmt(prevTotal)}</td>
+                  <td>${fmt(currTotal)}</td>
+                  <td class="${delta > 0 ? 'positive' : delta < 0 ? 'negative' : 'neutral'}" style="font-weight: 700;">
+                    ${delta > 0 ? '+' : ''}${fmt(delta)}
+                  </td>
+                </tr>
+              `;
+            }).join('')}
+          </tbody>
+          <tfoot>
+            <tr>
+              <td>ИТОГО</td>
+              <td>${fmt(STATUS_PATTERNS.reduce((sum, sp) => 
+                sum + sortedStatusRows.reduce((s, row) => 
+                  s + (row.statuses[sp.key]?.p || 0), 0), 0))}</td>
+              <td>${fmt(STATUS_PATTERNS.reduce((sum, sp) => 
+                sum + sortedStatusRows.reduce((s, row) => 
+                  s + (row.statuses[sp.key]?.c || 0), 0), 0))}</td>
+              <td>${fmt(STATUS_PATTERNS.reduce((sum, sp) => 
+                sum + sortedStatusRows.reduce((s, row) => 
+                  s + (row.statuses[sp.key]?.d || 0), 0), 0))}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    </div>
+    <div class="date-info">${new Date().toLocaleDateString('ru-RU')}</div>
+    <div class="page-number">6</div>
   </div>
 </body>
 </html>`;
@@ -2270,6 +2548,11 @@
     th, td { padding: 10px; border: 1px solid #e2e8f0; font-size: 0.875rem; }
     th { background: #1e40af; color: white; }
     tr:nth-child(even) { background: #f8fafc; }
+    @media (max-width: 768px) {
+      body { padding: 10px; }
+      table { font-size: 0.75rem; }
+      th, td { padding: 6px; }
+    }
   </style>
 </head>
 <body>
@@ -2345,6 +2628,27 @@
       </tr>
     </tfoot>
   </table>
+
+  <h2>Динамика по статусам в разрезе филиалов</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Филиал</th>
+        ${STATUS_PATTERNS.map(sp => `<th>${sp.short}</th>`).join('')}
+      </tr>
+    </thead>
+    <tbody>
+      ${dyn.statusRows.map(row => `
+        <tr>
+          <td>${row.b}</td>
+          ${STATUS_PATTERNS.map(sp => {
+            const d = row.statuses[sp.key]?.d || 0;
+            return `<td>${d > 0 ? '+' : ''}${fmt(d)}</td>`;
+          }).join('')}
+        </tr>
+      `).join('')}
+    </tbody>
+  </table>
 </body>
 </html>`;
     }
@@ -2413,6 +2717,93 @@
         <th>${fmt(dyn.branchRows.reduce((s, r) => s + r.d, 0))}</th>
       </tr>
     </tfoot>
+  </table>
+
+  <h2>3. Динамика по Приказу №425</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>№</th>
+        <th>Филиал</th>
+        <th>На начало периода</th>
+        <th>На конец периода</th>
+        <th>Изменение</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${dyn.branchRowsS3.map((row, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${row.b}</td>
+          <td>${fmt(row.p)}</td>
+          <td>${fmt(row.c)}</td>
+          <td>${fmt(row.d)}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th></th>
+        <th>ИТОГО</th>
+        <th>${fmt(dyn.branchRowsS3.reduce((s, r) => s + r.p, 0))}</th>
+        <th>${fmt(dyn.branchRowsS3.reduce((s, r) => s + r.c, 0))}</th>
+        <th>${fmt(dyn.branchRowsS3.reduce((s, r) => s + r.d, 0))}</th>
+      </tr>
+    </tfoot>
+  </table>
+
+  <h2>4. Динамика по ПАО «Ростелеком»</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>№</th>
+        <th>Филиал</th>
+        <th>На начало периода</th>
+        <th>На конец периода</th>
+        <th>Изменение</th>
+      </tr>
+    </thead>
+    <tbody>
+      ${dyn.branchRowsS4.map((row, i) => `
+        <tr>
+          <td>${i + 1}</td>
+          <td>${row.b}</td>
+          <td>${fmt(row.p)}</td>
+          <td>${fmt(row.c)}</td>
+          <td>${fmt(row.d)}</td>
+        </tr>
+      `).join('')}
+    </tbody>
+    <tfoot>
+      <tr>
+        <th></th>
+        <th>ИТОГО</th>
+        <th>${fmt(dyn.branchRowsS4.reduce((s, r) => s + r.p, 0))}</th>
+        <th>${fmt(dyn.branchRowsS4.reduce((s, r) => s + r.c, 0))}</th>
+        <th>${fmt(dyn.branchRowsS4.reduce((s, r) => s + r.d, 0))}</th>
+      </tr>
+    </tfoot>
+  </table>
+
+  <h2>5. Динамика по статусам работ</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Филиал</th>
+        ${STATUS_PATTERNS.map(sp => `<th>${sp.title}</th>`).join('')}
+      </tr>
+    </thead>
+    <tbody>
+      ${dyn.statusRows.map(row => `
+        <tr>
+          <td>${row.b}</td>
+          ${STATUS_PATTERNS.map(sp => {
+            const d = row.statuses[sp.key]?.d || 0;
+            return `<td>${d > 0 ? '+' : ''}${fmt(d)}</td>`;
+          }).join('')}
+        </tr>
+      `).join('')}
+    </tbody>
   </table>
   
   <p style="margin-top: 24pt;">
