@@ -221,14 +221,14 @@
   <!-- Стр. 2 -->
   <div class="container grid cols-2">
     <section class="card">
-      <h2>Стр. 2 — «Всего опор, шт.» по филиалам <span class="badge">Δ: тек. vs пред.</span></h2>
+      <h2>Стр. 2 — «Всего опор, шт.» по предприятиям <span class="badge">Δ: тек. vs пред.</span></h2>
       <div class="chart-box"><canvas id="chartBranches"></canvas></div>
     </section>
     <section class="card">
       <h2>Таблица (стр. 2) — Δ «Всего опор, шт.»</h2>
       <div class="table-wrap">
         <table id="tblBranches">
-          <thead><tr><th>Филиал</th><th>Пред., шт.</th><th>Тек., шт.</th><th>Δ, шт.</th></tr></thead>
+          <thead><tr><th>Предприятие</th><th>Пред., шт.</th><th>Тек., шт.</th><th>Δ, шт.</th></tr></thead>
           <tbody></tbody>
           <tfoot><tr><td>Итого</td><td id="sumPrev">0</td><td id="sumCurr">0</td><td id="sumDelta">0</td></tr></tfoot>
         </table>
@@ -239,14 +239,14 @@
   <!-- Стр. 3 -->
   <div class="container grid cols-2">
     <section class="card">
-      <h2>Стр. 3 — Приказ №425: «Всего опор, шт.» по филиалам</h2>
+      <h2>Стр. 3 — Приказ №425: «Всего опор, шт.» по предприятиям</h2>
       <div class="chart-box"><canvas id="chartBranchesS3"></canvas></div>
     </section>
     <section class="card">
       <h2>Таблица (стр. 3) — Δ «Всего опор, шт.»</h2>
       <div class="table-wrap">
         <table id="tblBranchesS3">
-          <thead><tr><th>Филиал</th><th>Пред., шт.</th><th>Тек., шт.</th><th>Δ, шт.</th></tr></thead>
+          <thead><tr><th>Предприятие</th><th>Пред., шт.</th><th>Тек., шт.</th><th>Δ, шт.</th></tr></thead>
           <tbody></tbody>
           <tfoot><tr><td>Итого</td><td id="sumPrevS3">0</td><td id="sumCurrS3">0</td><td id="sumDeltaS3">0</td></tr></tfoot>
         </table>
@@ -257,14 +257,14 @@
   <!-- Стр. 4 -->
   <div class="container grid cols-2">
     <section class="card">
-      <h2>Стр. 4 — ПАО «Ростелеком»: «Всего опор, шт.» по филиалам</h2>
+      <h2>Стр. 4 — ПАО «Ростелеком»: «Всего опор, шт.» по предприятиям</h2>
       <div class="chart-box"><canvas id="chartBranchesS4"></canvas></div>
     </section>
     <section class="card">
       <h2>Таблица (стр. 4) — Δ «Всего опор, шт.»</h2>
       <div class="table-wrap">
         <table id="tblBranchesS4">
-          <thead><tr><th>Филиал</th><th>Пред., шт.</th><th>Тек., шт.</th><th>Δ, шт.</th></tr></thead>
+          <thead><tr><th>Предприятие</th><th>Пред., шт.</th><th>Тек., шт.</th><th>Δ, шт.</th></tr></thead>
           <tbody></tbody>
           <tfoot><tr><td>Итого</td><td id="sumPrevS4">0</td><td id="sumCurrS4">0</td><td id="sumDeltaS4">0</td></tr></tfoot>
         </table>
@@ -274,7 +274,7 @@
 
   <div class="container">
     <section class="card">
-      <h2>Стр. 4 — ПАО «Ростелеком»: Δ по филиалам</h2>
+      <h2>Стр. 4 — ПАО «Ростелеком»: Δ по предприятиям</h2>
       <div class="chart-box"><canvas id="chartRTKDelta"></canvas></div>
     </section>
   </div>
@@ -319,9 +319,9 @@
 
     <!-- slide 2 -->
     <div class="print-slide">
-      <h3>Динамика выявления бездоговорного размещения ВОЛС в разрезе филиалов ЭС (итого):</h3>
+      <h3>Динамика выявления бездоговорного размещения ВОЛС в разрезе предприятий ЭС (итого):</h3>
       <div class="print-grid">
-        <div class="print-imgbox"><img id="presImgS2" alt="График по филиалам (всего)" /></div>
+        <div class="print-imgbox"><img id="presImgS2" alt="График по предприятиям (всего)" /></div>
         <div class="print-panel" id="presTable"></div>
       </div>
       <div id="presKpiLine" class="note" style="margin-top:8px"></div>
@@ -347,7 +347,7 @@
 
     <!-- slide 5 -->
     <div class="print-slide">
-      <h3>Динамика по статусам (Δ) — матрица по филиалам (стр. 2)</h3>
+      <h3>Динамика по статусам (Δ) — матрица по предприятиям (стр. 2)</h3>
       <div id="presStagesMatrix"></div>
     </div>
 
@@ -388,17 +388,25 @@
   ];
 
   const STATUS_PATTERNS = [
-    {key:"work", title:"В работе у филиала", re:/В\s*работе\s*у\s*филиала/i},
+    {key:"work", title:"В работе у предприятия", re:/В\s*работе\s*у\s*предприятия/i},
     {key:"dismantled", title:"Демонтировано", re:/Демонтировано/i},
     {key:"rc_digit", title:"Договор на оформлении Россети Цифра", re:/Договор\s*на\s*оформлении\s*Россети\s*Цифра/i},
     {key:"op_sign", title:"Договор на подписании у оператора", re:/Договор\s*на\s*подписании\s*у\s*оператора/i},
-    {key:"filial_appr",title:"Договор на согласовании в филиале", re:/Договор\s*на\s*согласовании\s*в\s*филиале/i},
+    {key:"filial_appr",title:"Договор на согласовании в предприятии", re:/Договор\s*на\s*согласовании\s*в\s*предприятии/i},
     {key:"incl_next", title:"Будет включено в следующее доп. соглашение после подписания", re:/Будет\s*включено(?:[\s\S]{0,80})в(?:\s*следующее)?(?:[\s\S]{0,80})доп\.?\s*соглашение(?:[\s\S]{0,80}после\s*подписания)?/i },
   ];
   const STATUS_KEYS = STATUS_PATTERNS.map(s => s.key);
+
   const STAGE_TITLE = k => (STATUS_PATTERNS.find(s => s.key===k)||{}).title||k;
 
-  const SHORT_STAGE_TITLES = {"work":"В работе","dismantled":"Демонт.","rc_digit":"Оформл. РЦ","op_sign":"Подпись опер.","filial_appr":"Согл. филиал","incl_next":"В след. доп.согл."};
+  const SHORT_STAGE_TITLES = {
+    "work":"В работе",
+    "dismantled":"Демонт.",
+    "rc_digit":"Оформл. РЦ",
+    "op_sign":"Подпись опер.",
+    "filial_appr":"Согл. предприятие",
+    "incl_next":"В след. доп.согл."
+  };
   const SHORT_STAGE_TITLE = k => SHORT_STAGE_TITLES[k] || STAGE_TITLE(k);
 
   const collatorRU = new Intl.Collator("ru",{sensitivity:"base"});
@@ -687,7 +695,10 @@
       options: chartOpts()
     });
 
-    const rtkD = labels.map(b => (dyn.rtkRows.find(x => x.b === b) || {c:0,p:0}).c - (dyn.rtkRows.find(x => x.b === b) || {c:0,p:0}).p);
+    const rtkD = labels.map(b => {
+      const row = dyn.rtkRows.find(x => x.b === b) || {c:0,p:0};
+      return row.c - row.p;
+    });
     if(chartRTKDelta) chartRTKDelta.destroy();
     chartRTKDelta = new Chart(document.getElementById("chartRTKDelta"), {
       type:"bar",
@@ -715,7 +726,7 @@
     return `<div style="font-weight:700;margin:6px 0">${title}</div>
       <table style="width:100%;border-collapse:collapse;font-size:11px">
         <thead><tr>
-          <th style="text-align:left;border-bottom:1px solid #e7edf5;padding:4px">Филиал</th>
+          <th style="text-align:left;border-bottom:1px solid #e7edf5;padding:4px">Предприятие</th>
           <th style="text-align:right;border-bottom:1px solid #e7edf5;padding:4px">Пред.</th>
           <th style="text-align:right;border-bottom:1px solid #e7edf5;padding:4px">Тек.</th>
           <th style="text-align:right;border-bottom:1px solid #e7edf5;padding:4px">Δ</th>
@@ -763,7 +774,7 @@
     return `<div style="font-weight:700;margin:8px 0">${title}</div>
       <div class="status-matrix-wrap">
         <table class="status-matrix" style="width:100%;border-collapse:collapse;font-size:10px">
-          <thead><tr><th style="text-align:left;border-bottom:1px solid #e7edf5;padding:3px 4px">Филиал</th>${head}</tr></thead>
+          <thead><tr><th style="text-align:left;border-bottom:1px solid #e7edf5;padding:3px 4px">Предприятие</th>${head}</tr></thead>
           <tbody>${body}</tbody>
           <tfoot>${totalRow}</tfoot>
         </table>
@@ -818,12 +829,11 @@
       `Ключевые показатели: В работе всего — ${fmt(curr.p1.totals.in_work_total)} (${sign(dyn.in_work_total)}${fmt(dyn.in_work_total)}); `
       + `Выявлено — ${fmt(dyn.found_week)}; Закрыто — ${fmt(eff)}; РТК — ${fmt(curr.p1.totals.rtk_in_work)} (${sign(dyn.rtk_in_work)}${fmt(dyn.rtk_in_work)}, ${rtkShare.toFixed(1)}%).`;
 
-    // Сортировка А-Я во всех табличных блоках презентации
     const s2Sorted = sortRowsRUByBranch(dyn.branchRows);
     const s3Sorted = sortRowsRUByBranch(dyn.branchRowsS3||[]);
     const s4Sorted = sortRowsRUByBranch(dyn.branchRowsS4||[]);
 
-    document.getElementById("presTable").innerHTML   = presTableHTML("Динамика по филиалам (всего)", s2Sorted, ["sumPrev","sumCurr","sumDelta"]);
+    document.getElementById("presTable").innerHTML   = presTableHTML("Динамика по предприятиям (всего)", s2Sorted, ["sumPrev","sumCurr","sumDelta"]);
     document.getElementById("presTableS3").innerHTML = presTableHTML("Динамика по Приказу №425", s3Sorted, ["sumPrevS3","sumCurrS3","sumDeltaS3"]);
     document.getElementById("presTableS4").innerHTML = presTableHTML("Динамика по ПАО «Ростелеком»", s4Sorted, ["sumPrevS4","sumCurrS4","sumDeltaS4"]);
 
@@ -852,7 +862,7 @@
     const s3Sorted = sortRowsRUByBranch(dyn.branchRowsS3||[]);
     const s4Sorted = sortRowsRUByBranch(dyn.branchRowsS4||[]);
 
-    document.getElementById("fullTableS2").innerHTML = presTableHTML("Динамика по филиалам (всего)", s2Sorted, ["sumPrev","sumCurr","sumDelta"]);
+    document.getElementById("fullTableS2").innerHTML = presTableHTML("Динамика по предприятиям (всего)", s2Sorted, ["sumPrev","sumCurr","sumDelta"]);
     document.getElementById("fullTableS3").innerHTML = presTableHTML("Динамика по Приказу №425", s3Sorted, ["sumPrevS3","sumCurrS3","sumDeltaS3"]);
     document.getElementById("fullTableS4").innerHTML = presTableHTML("Динамика по ПАО «Ростелеком»", s4Sorted, ["sumPrevS4","sumCurrS4","sumDeltaS4"]);
 
@@ -981,13 +991,12 @@
     const eff = (curr.p1.totals.legalized + curr.p1.totals.dismantled_ytd) - (prev.p1.totals.legalized + prev.p1.totals.dismantled_ytd);
     const rtkShare = curr.p1.totals.in_work_total ? (curr.p1.totals.rtk_in_work / curr.p1.totals.in_work_total * 100) : 0;
 
-    // Таблицы — с сортировкой А-Я (полная информация)
     const s2Sorted = sortRowsRUByBranch(dyn.branchRows);
     const s3Sorted = sortRowsRUByBranch(dyn.branchRowsS3||[]);
     const s4Sorted = sortRowsRUByBranch(dyn.branchRowsS4||[]);
 
     function tableHTML(rows, sumsIds){
-      return `<table><thead><tr><th>Филиал</th><th>Пред.</th><th>Тек.</th><th>Δ</th></tr></thead>
+      return `<table><thead><tr><th>Предприятие</th><th>Пред.</th><th>Тек.</th><th>Δ</th></tr></thead>
         <tbody>${rows.map(r=>`<tr><td>${r.b}</td><td>${fmt(r.p)}</td><td>${fmt(r.c)}</td><td class="${r.d>0?'positive':r.d<0?'negative':''}">${r.d>0?'+':''}${fmt(r.d)}</td></tr>`).join("")}</tbody>
         <tfoot><tr><td><b>ИТОГО</b></td><td>${document.getElementById(sumsIds[0]).textContent}</td><td>${document.getElementById(sumsIds[1]).textContent}</td><td>${document.getElementById(sumsIds[2]).textContent}</td></tr></tfoot></table>`;
     }
@@ -1026,9 +1035,9 @@
   <li>ПАО «Ростелеком» в работе: <b>${fmt(curr.p1.totals.rtk_in_work)}</b> (${dyn.rtk_in_work>0?'+':''}${fmt(dyn.rtk_in_work)}; доля ${rtkShare.toFixed(1)}%)</li>
 </ul>
 
-<h2>Динамика по филиалам (всего)</h2>
+<h2>Динамика по предприятиям (всего)</h2>
 <div class="two-col">
-  <div class="panel"><img src="${imgS2}" alt="График по филиалам (всего)" /></div>
+  <div class="panel"><img src="${imgS2}" alt="График по предприятиям (всего)" /></div>
   <div class="panel">${tableHTML(s2Sorted, ["sumPrev","sumCurr","sumDelta"])}</div>
 </div>
 
@@ -1075,7 +1084,7 @@ ${(function(){
     const s3Sorted = sortRowsRUByBranch(dyn.branchRowsS3||[]);
     const s4Sorted = sortRowsRUByBranch(dyn.branchRowsS4||[]);
 
-    const tblS2HTML_sorted = presTableHTML("Динамика по филиалам (всего)", s2Sorted, ["sumPrev","sumCurr","sumDelta"]);
+    const tblS2HTML_sorted = presTableHTML("Динамика по предприятиям (всего)", s2Sorted, ["sumPrev","sumCurr","sumDelta"]);
     const tblS3HTML_sorted = presTableHTML("Динамика по Приказу №425", s3Sorted, ["sumPrevS3","sumCurrS3","sumDeltaS3"]);
     const tblS4HTML_sorted = presTableHTML("Динамика по ПАО «Ростелеком»", s4Sorted, ["sumPrevS4","sumCurrS4","sumDeltaS4"]);
 
@@ -1103,120 +1112,154 @@ ${(function(){
     th:first-child, td:first-child{ text-align:left !important }
     th{background:#0033A0;color:#fff;font-weight:700}
     tfoot td{font-weight:800;background:#f7f9fc}
-    .legend{font-size:12px;color:#5f6b7a}
-    .subline{font-size:16px;color:#5f6b7a;margin:-6px 0 10px}
-    .slide-no{position:absolute;bottom:22px;right:26px;color:#94a3b8;font-weight:700}
+    .legend{font-size:12px;color:#64748b;margin-top:8px}
+    .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+    .chip{border-radius:999px;border:1px solid #e5e7eb;padding:4px 10px;font-size:11px;background:#f9fafb}
+    .footer{position:absolute;right:32px;bottom:24px;font-size:11px;color:#94a3b8}
   </style>
 </head>
 <body>
 
-  <div class="slide">
-    <h1>Выполнение плановых показателей БП по размещению ВОЛС на ВЛ</h1>
-    <div class="panel">${planfactHTML}</div>
-    <div class="slide-no">1</div>
+<div class="slide">
+  <h1>ВОЛС на ВЛ</h1>
+  <h3>Динамика выявления и оформления бездоговорного размещения</h3>
+  <div class="legend">
+    Отчетный период: пред. неделя — ${prev.date}, тек. неделя — ${curr.date}
   </div>
-
-  <div class="slide">
-    <h2>Динамика выявления бездоговорного размещения ВОЛС в разрезе филиалов ЭС (итого):</h2>
-    <div class="grid2">
-      <div class="imgbox"><img src="${imgS2}" alt="График по филиалам (всего)" style="width:100%;height:auto"/></div>
-      <div class="panel">${tblS2HTML_sorted}</div>
+  <div style="margin-top:18px" class="grid2">
+    <div class="panel">
+      <h3>План-Факт</h3>
+      ${planfactHTML || "<div style='font-size:12px;color:#64748b'>План-факт не загружен.</div>"}
     </div>
-    <div class="legend" style="margin-top:10px;font-size:18px;font-weight:800">${compactKPIs}</div>
-    <div class="slide-no">2</div>
-  </div>
-
-  <div class="slide">
-    <h2>В том числе: динамика по Приказу №425</h2>
-    <div class="grid2">
-      <div class="imgbox"><img src="${imgS3}" alt="График по Приказу 425" style="width:100%;height:auto"/></div>
-      <div class="panel">${tblS3HTML_sorted}</div>
+    <div class="panel">
+      <h3>Ключевые показатели</h3>
+      <p style="font-size:13px;line-height:1.5">${compactKPIs}</p>
+      <div class="chips">
+        <span class="chip">В работе всего: ${fmt(curr.p1.totals.in_work_total)}</span>
+        <span class="chip">Выявлено за нед.: ${fmt(dyn.found_week)}</span>
+        <span class="chip">Закрыто за нед.: ${fmt((curr.p1.totals.legalized + curr.p1.totals.dismantled_ytd)-(prev.p1.totals.legalized + prev.p1.totals.dismantled_ytd))}</span>
+        <span class="chip">РТК в работе: ${fmt(curr.p1.totals.rtk_in_work)}</span>
+      </div>
     </div>
-    <div class="slide-no">3</div>
   </div>
+  <div class="footer">АО «Россети Кубань» · Автоматический дашборд по ВОЛС</div>
+</div>
 
-  <div class="slide">
-    <h2>В том числе: динамика по ПАО «Ростелеком»</h2>
-    <div class="grid2">
-      <div class="imgbox"><img src="${imgS4}" alt="График по ПАО Ростелеком" style="width:100%;height:auto"/></div>
-      <div class="panel">${tblS4HTML_sorted}</div>
+<div class="slide">
+  <h2>Стр. 2 — По предприятиям ЭС (итого)</h2>
+  <div class="grid2" style="margin-top:16px">
+    <div class="imgbox">
+      <img src="${imgS2}" alt="График по предприятиям (всего)">
     </div>
-    <div class="slide-no">4</div>
+    <div class="panel">
+      ${tblS2HTML_sorted}
+    </div>
   </div>
+  <div class="footer">Стр. 2 отчета · Всего опор по предприятиям</div>
+</div>
 
-  <div class="slide">
-    <h2>Динамика по статусам (Δ) — матрица по филиалам</h2>
-    <div class="panel">${stageMatrixHTML("Динамика по статусам (Δ) — стр. 2", [...dyn.s2BranchStages].sort((a,b)=>new Intl.Collator('ru').compare(a.b,b.b)))}</div>
-    <div class="slide-no">5</div>
+<div class="slide">
+  <h2>Стр. 3 — Приказ №425</h2>
+  <div class="grid2" style="margin-top:16px">
+    <div class="imgbox">
+      <img src="${imgS3}" alt="График по Приказу №425">
+    </div>
+    <div class="panel">
+      ${tblS3HTML_sorted}
+    </div>
   </div>
+  <div class="footer">Стр. 3 отчета · Опоры по Приказу №425</div>
+</div>
 
-  <div class="slide">
-    <h2>Итоги по статусам</h2>
-    <div class="panel">${stageTotalsHTML("Итоги по статусам — стр. 2", dyn.stagesS2)}</div>
-    <div class="slide-no">6</div>
+<div class="slide">
+  <h2>Стр. 4 — ПАО «Ростелеком»</h2>
+  <div class="grid2" style="margin-top:16px">
+    <div class="imgbox">
+      <img src="${imgS4}" alt="График по ПАО Ростелеком">
+    </div>
+    <div class="panel">
+      ${tblS4HTML_sorted}
+    </div>
   </div>
+  <div class="footer">Стр. 4 отчета · Опоры ПАО «Ростелеком»</div>
+</div>
 
 </body>
 </html>`;
 
-    const blob = new Blob([presHTML], {type: 'text/html; charset=utf-8'});
-    triggerDownload(blob, `Презентация_ВОЛС_${curr.date.replace(/\./g,'-')}.html`);
-    document.getElementById("exportStatus").textContent = "HTML презентация сохранена.";
+    const blob = new Blob([presHTML], {type:'text/html; charset=utf-8'});
+    triggerDownload(blob, "Презентация_ВОЛС_HTML.html");
+    document.getElementById("exportStatus").textContent = "HTML-презентация сохранена.";
   }
 
-  /* ==================== Инициализация ==================== */
+  /* ==================== Главная точка входа ==================== */
   let DATA = null;
 
-  // АВТО-подтяжка План-Факт при открытии страницы
-  document.addEventListener("DOMContentLoaded", ()=>{ injectPlanFactHTML(); });
-
-  document.getElementById("btnParse").addEventListener("click", async () => {
-    const fPrev = document.getElementById("filePrev").files[0];
-    const fCurr = document.getElementById("fileCurr").files[0];
-    if(!fPrev || !fCurr){ document.getElementById("errorMsg").textContent = "Загрузите оба PDF: предыдущий и текущий."; return; }
-
+  async function handleParse(){
+    const filePrev = document.getElementById("filePrev").files[0];
+    const fileCurr = document.getElementById("fileCurr").files[0];
+    const errEl = document.getElementById("errorMsg");
+    errEl.textContent = "";
+    if(!filePrev || !fileCurr){
+      errEl.textContent = "Загрузите два PDF: предыдущая и текущая неделя.";
+      return;
+    }
+    document.getElementById("loadingMsg").style.display = "block";
     try{
-      document.getElementById("loadingMsg").style.display = "block";
-      document.getElementById("errorMsg").textContent = "";
+      const [pagesPrev, pagesCurr] = await Promise.all([
+        pdfToPages(filePrev),
+        pdfToPages(fileCurr)
+      ]);
 
-      const [pPrev, pCurr] = await Promise.all([pdfToPages(fPrev), pdfToPages(fCurr)]);
-      const prev = parseReportByPages(pPrev);
-      const curr = parseReportByPages(pCurr);
-      const dyn = computeDynamics(curr, prev);
-      DATA = {prev, curr, dyn};
+      const prev = parseReportByPages(pagesPrev);
+      const curr = parseReportByPages(pagesCurr);
+      const dyn  = computeDynamics(curr, prev);
+      DATA = {curr, prev, dyn};
 
-      document.getElementById("dates").textContent = `Предыдущий: ${prev.date} · Текущий: ${curr.date}`;
+      document.getElementById("dates").textContent = `Отчеты: пред. — ${prev.date}, тек. — ${curr.date}`;
+
       renderKpis(curr, prev, dyn);
-      renderBranchesTable(dyn.branchRows, "#tblBranches tbody", "sumPrev", "sumCurr", "sumDelta");
-      renderBranchesTable(dyn.branchRowsS3, "#tblBranchesS3 tbody", "sumPrevS3", "sumCurrS3", "sumDeltaS3");
-      renderBranchesTable(dyn.branchRowsS4, "#tblBranchesS4 tbody", "sumPrevS4", "sumCurrS4", "sumDeltaS4");
+      renderBranchesTable(dyn.branchRows,   "#tblBranches tbody",   "sumPrev","sumCurr","sumDelta");
+      renderBranchesTable(dyn.branchRowsS3, "#tblBranchesS3 tbody", "sumPrevS3","sumCurrS3","sumDeltaS3");
+      renderBranchesTable(dyn.branchRowsS4, "#tblBranchesS4 tbody", "sumPrevS4","sumCurrS4","sumDeltaS4");
       renderCharts(curr, prev, dyn);
       renderStagesTables(dyn);
 
-      // План-Факт уже загружен на главную в DOMContentLoaded; одинаково используется в экспортных блоках
       buildPresentationHTML(curr, prev, dyn);
       buildFullPrint(curr, prev, dyn);
 
-      document.getElementById("loadingMsg").style.display = "none";
-      document.getElementById("exportStatus").textContent = "Анализ завершён. Доступны все выгрузки.";
+      document.getElementById("exportStatus").textContent = "Данные обновлены. Можно выгружать отчеты.";
     }catch(e){
       console.error(e);
+      errEl.textContent = "Ошибка при разборе PDF. Проверьте структуру отчета.";
+    }finally{
       document.getElementById("loadingMsg").style.display = "none";
-      document.getElementById("errorMsg").textContent = "Ошибка разбора PDF. Проверьте формат отчётов. Подробности в консоли.";
     }
-  });
+  }
 
-  document.getElementById("exportPresPDF").addEventListener("click", async () => { await exportPresPDF(); });
-  document.getElementById("exportPresHTML").addEventListener("click", async () => { await exportPresHTML(); });
-  document.getElementById("exportWordHTML").addEventListener("click", async () => { await exportWordHTML(); });
-  document.getElementById("exportFullPDF").addEventListener("click", async () => { await exportFullPDF(); });
+  function toggleCompact(){
+    const root = document.body;
+    const btn  = document.getElementById("btnCompact");
+    const pressed = btn.getAttribute("aria-pressed")==="true";
+    const next = !pressed;
+    btn.setAttribute("aria-pressed", String(next));
+    if(next){
+      root.classList.add("compact");
+      btn.textContent = "Обычный режим";
+    }else{
+      root.classList.remove("compact");
+      btn.textContent = "Компактный режим";
+    }
+  }
 
-  /* Компактный режим */
-  document.getElementById("btnCompact").addEventListener("click", (e)=>{
-    document.body.classList.toggle("compact");
-    const pressed = document.body.classList.contains("compact");
-    e.currentTarget.setAttribute("aria-pressed", String(pressed));
-  });
+  document.getElementById("btnParse").addEventListener("click", handleParse);
+  document.getElementById("btnCompact").addEventListener("click", toggleCompact);
+  document.getElementById("exportPresPDF").addEventListener("click", exportPresPDF);
+  document.getElementById("exportFullPDF").addEventListener("click", exportFullPDF);
+  document.getElementById("exportWordHTML").addEventListener("click", exportWordHTML);
+  document.getElementById("exportPresHTML").addEventListener("click", exportPresHTML);
+
+  injectPlanFactHTML();
   </script>
 </body>
 </html>
